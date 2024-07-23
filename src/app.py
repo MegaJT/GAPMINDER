@@ -1,13 +1,54 @@
-import dash
+import pandas as pd
+import bcrypt
+from dotenv import load_dotenv
 from dash import Dash, html, dcc
 import dash_bootstrap_components as dbc
 import plotly.express as px
 from dash.dependencies import Input, Output
+from dash import html, dcc
+from dash.dependencies import Input, Output
+from flask import Flask, request, Response,session
+import bcrypt
+
 
 
 # Instantiate our App and incorporate BOOTSTRAP theme stylesheet
-app = Dash(__name__, external_stylesheets=[dbc.themes.COSMO])
-server = app.server
+server = Flask(__name__)
+app = Dash(__name__, server=server,external_stylesheets=[dbc.themes.COSMO])
+
+
+
+users_df = pd.read_excel('users.xlsx')
+def check_auth(username, password):
+    """Check if a username / password combination is valid."""
+    user_record = users_df[users_df['username'] == username]
+    if not user_record.empty:
+        stored_password = user_record.iloc[0]['password']
+        return bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8'))
+    return False
+
+def authenticate():
+    """Sends a 401 response that enables basic auth"""
+    return Response(
+        'Could not verify your access level for that URL.\n'
+        'You have to login with proper credentials', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+@server.before_request
+def before_request():
+    auth = request.authorization
+    if not auth or not check_auth(auth.username, auth.password):
+        return authenticate()
+
+
+
+
+
+
+
+
+
+
 
 
 shadowstyle='0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19)'
@@ -75,14 +116,19 @@ continent_life_expectancy = df.groupby('continent')['lifeExp'].mean()
 country_data = df[df['country'] == 'United States']
 
 # Get unique continent and country values
-unique_continents = df['continent'].unique()
+
 unique_countries = df['country'].unique()
 
+unique_continents = df['continent'].unique()
+
+
+
 # Dropdown for continents
+data=unique_continents
 continent_dropdown = dcc.Dropdown(
     id='continent-dropdown',
-    options=[{'label': continent, 'value': continent} for continent in unique_continents],
-    value=unique_continents[0],  # Set default value to the first continent
+    #options=[{'label': continent, 'value': continent} for continent in unique_continents],
+    #value=unique_continents[0],  # Set default value to the first continent
     placeholder="Select a continent"
 )
 
@@ -139,7 +185,7 @@ app.layout =html.Div([
 dbc.Row([
         dbc.Col([logo],width=2),
         dbc.Col([Title],width=8),
-        dbc.Col([],width=2)
+        dbc.Col([],width=2,id='output-username')
     ]),
 dbc.Row([html.Hr()]),       
 dcc.Tabs([
@@ -161,6 +207,29 @@ dbc.Row([bar_chart]),
         dcc.Tab(label='GDP per Capita', children=[
             dbc.Container([Bub_Chart_and_slider]),])    ])
     ])
+
+
+# Callback to filter content based on username
+@app.callback(
+    Output('continent-dropdown', 'options'),
+    [Input('output-username', 'children')]
+)
+def filter_dropdown_content(_):
+    auth = request.authorization
+    if not auth:
+        return []
+
+    username = auth.username
+    if username == 'user1':
+        filtered_items = data[:2]
+    elif username == 'user2':
+        filtered_items = data[:3]
+    elif username == 'user3':
+        filtered_items = data[:4]
+    else:
+        filtered_items = []
+
+    return [{'label': item, 'value': item} for item in filtered_items]
 
 
 # Callback to update country dropdown options based on selected continent
