@@ -15,7 +15,7 @@ import bcrypt
 # Instantiate our App and incorporate BOOTSTRAP theme stylesheet
 server = Flask(__name__)
 app = Dash(__name__, server=server,external_stylesheets=[dbc.themes.COSMO])
-
+server=app.server
 
 
 users_df = pd.read_excel('users.xlsx')
